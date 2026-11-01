@@ -80,7 +80,9 @@ MIPS minimum empty frame). The one real registry difference: **PS2 has no
 * **PC resolved names (6)**: `glEnd`, `gluSphere`, `gluNewQuadric`,
   `gluBuild2DMipmaps`, `gluScaleImage`, `DSOUND_11` — i.e. the PC port links
   **OpenGL + GLUT** and a **DirectX sound** thunk instead of the console renderers.
-  Everything else in `functions.json` is still an address-named placeholder.
+  Everything else in `functions.json` is still an address-named placeholder —
+  the PC build shipped **without debug symbols**, so those names are ours to
+  recover (see the working plan below).
 
 ## Data / ABI differences to keep in docs
 
