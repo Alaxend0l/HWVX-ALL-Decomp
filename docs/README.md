@@ -37,4 +37,6 @@ Every function doc records, in this order:
 * `_meta/toolchain-ps2.md` — PS2 toolchain (MW MIPS C Compiler 2.4.1.01 / CodeWarrior PS2 R3.01, Wine)
 * `_meta/toolchain-pc.md` — PC toolchain (MSVC 6.0 `CL.EXE` via wibo, decompnet)
 * `_meta/version-differences.md` — global GC ↔ PS2 ↔ PC differences
-* `Action.c/` — (module documentation in progress)
+* `Action.c/` — action-script / trigger module: unit `text_00401090` (PC
+  `0x00401090`–`0x00401FC8`), 30 function docs, all documented functions
+  PC-confirmed; see `Action.c/_README.md`
