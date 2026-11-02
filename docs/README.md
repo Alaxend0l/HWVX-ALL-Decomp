@@ -40,3 +40,8 @@ Every function doc records, in this order:
 * `Action.c/` — action-script / trigger module: unit `text_00401090` (PC
   `0x00401090`–`0x00401FC8`), 30 function docs, all documented functions
   PC-confirmed; see `Action.c/_README.md`
+* `ThingManager.c/` — thing object pools, global active list, slave-list
+  machinery: PC list-op cluster `0x0044A790`–`0x0044AA50` + create pair
+  `0x0044D0B0`/`0x0044D0F0`; 6 function docs so far (list ops +
+  CreateThing/CreateSlave), module README carries the 3-platform pool layout
+  and full function map; see `ThingManager.c/_README.md`
