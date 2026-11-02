@@ -18,7 +18,8 @@ unit; the MSVC units are split around the GC file boundary and mixed with
 
 | PC unit | Range | ThingManager.c content |
 | --- | --- | --- |
-| `text_0044A0D0` | `0x0044A0D0`–`0x0044AD00` | list-op cluster `0x0044A790`–`0x0044AA50` (tail of the unit); the rest is `Thing.c` (e.g. `Thing_ProcessEndEvent` at `0x0044A430`) |
+| `text_0044A0D0` | `0x0044A0D0`–`0x0044AD00` | list-op cluster `0x0044A790`–`0x0044AA50`, then the `SharedSlaveHolder` candidate cluster `0x0044AA50`–`0x0044AD00` (tail of the unit); before the cluster is `Thing.c` (e.g. `Thing_ProcessEndEvent` at `0x0044A430`) |
+| `text_0044AD00` | `0x0044AD00`–`0x0044B9BF` | `ThingManagerList_TriggerSlaves` `0x0044AD00` `0x610`, `ThingManagerList_InitAllSlavesNow` `0x0044B310` `0x80`, pool-init candidate `0x0044B390` `0x510` (18 freeList-slot + vtable relocs, matches the GC `THINGPOOLS` macros from `src/ThingManager.c:542`) |
 | `text_0044D050` | — | `ThingManager_DARYL_CreateThing` `0x0044D0B0`, `ThingManager_DARYL_CreateSlave` `0x0044D0F0` |
 
 The list cluster starts at `0x0044A790`; everything before it in the unit is
@@ -109,8 +110,8 @@ GC from `HWVX-GC-Decomp/config/HOTWHE/symbols.txt`; PS2 from
 | `ThingManagerList_ReleaseAndRemoveAll` | `0x80054244` `0x228` | (no symbol, see note) | `0x0044A970` `0x20` | [→](ThingManagerList_ReleaseAndRemoveAll.md) |
 | `ThingManagerList_ReleaseAll` | `0x8005446C` `0x4C` | `0x002B15C0` `0x48` | `0x0044A990` `0x30` | [→](ThingManagerList_ReleaseAll.md) |
 | `ThingManagerList_EmancipateSlaves` | `0x800544B8` `0x158` | `0x002B1480` `0x13C` | `0x0044A9C0` `0x90` | [→](ThingManagerList_EmancipateSlaves.md) |
-| `ThingManagerList_TriggerSlaves` | `0x80054964` `0x6B0` | `0x002B04C0` `0xA94` | — | |
-| `ThingManagerList_InitAllSlavesNow` | `0x80055014` `0x170` | `0x002B0380` `0x140` | — | |
+| `ThingManagerList_TriggerSlaves` | `0x80054964` `0x6B0` | `0x002B04C0` `0xA94` | `0x0044AD00` `0x610` | [→](ThingManagerList_TriggerSlaves.md) |
+| `ThingManagerList_InitAllSlavesNow` | `0x80055014` `0x170` | `0x002B0380` `0x140` | `0x0044B310` `0x80` | [→](ThingManagerList_InitAllSlavesNow.md) |
 | `ThingManager_DARYL_CreateMain` | `0x80055184` `0xF3C` | `0x002AF7A0` `0xBD4` | — | |
 | `ThingManager_DARYL_Create` | `0x800560C0` `0x44` | `0x002AF750` `0x50` | — | |
 | `ThingManager_DARYL_Destroy` | `0x80056104` `0xCC` | `0x002AF630` `0x120` | — | |
@@ -127,10 +128,26 @@ GC from `HWVX-GC-Decomp/config/HOTWHE/symbols.txt`; PS2 from
 | `ThingManager_GetActiveSoundSequences` | `0x80058788` `0xC4` | `0x002AC990` `0x68` | — | |
 | `ThingManager_Invalidate` | `0x80058DCC` `0x544` | `0x002ABD60` `0x744` | — | |
 
-Also in the GC source but without link symbols: `ThingManager_InitFreeThing` /
-`ThingManager_InitPool` (`static inline`, source lines 71/91),
-`SharedSlaveHolder_Release` (:268), `SharedSlaveHolder_Get` (:292),
-`Thing_DrawSharedSlaves` (:312).
+Also in the GC source but without GC link symbols:
+`ThingManager_InitFreeThing` / `ThingManager_InitPool` (`static inline`,
+source lines 71/91), `SharedSlaveHolder_Release` (:268),
+`SharedSlaveHolder_Get` (:292), `Thing_DrawSharedSlaves` (:312). The PS2
+build **does** carry symbols (and `.s` listings) for the latter three —
+`Thing_DrawSharedSlaves` `0x002B0F60` `0x178`,
+`SharedSlaveHolder_Heartbeat` `0x002B10E0` `0x104`,
+`SharedSlaveHolder_Get` `0x002B11F0` `0x124`,
+`SharedSlaveHolder_Release` `0x002B1320` `0x158` — so the GC trio maps as
+GC `:268`/`:292`/`:312` ↔ PS2 Release/Get/Draw (PS2 additionally has a
+`_Heartbeat` with no GC-symbol counterpart). On PC, `SharedSlaveHolder_Get`
+is confirmed at `0x0044AAB0` (callers: `TriggerSlaves` case 10 @`0x0044B21A`,
+`InitAllSlavesNow` callee-side link); four more functions —
+`0x0044AA50` `0x20`, `0x0044AA70` `0x40`, `0x0044AB10` `0xB0`,
+`0x0044ABC0` `0x140` — tile `0x0044AA50`–`0x0044AD00` exactly with it and
+are the holder-cluster candidates (batch 4). Caveat for caller counting:
+PS2 `SharedSlaveHolder_Get` inlines the whole `InitAllSlavesNow` body
+(`jal ReleaseSlavesBySlaveType` @`0x002B1278`, `jal TriggerSlaves`
+@`0x002B12B4`) instead of calling it, while PC `Get` calls it
+@`0x0044AB02`.
 
 ## PS2 symbol gaps
 
