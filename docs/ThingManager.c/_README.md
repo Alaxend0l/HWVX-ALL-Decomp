@@ -103,12 +103,12 @@ GC from `HWVX-GC-Decomp/config/HOTWHE/symbols.txt`; PS2 from
 | `ThingManagerList_Remove` | `0x80053FA0` `0x48` | `0x002B18D0` `0x40` | `0x0044A7C0` `0x50` | [→](ThingManagerList_Remove.md) |
 | — (PC-only pop helper) | inline | inline | `0x0044A810` `0x30` | [→](ThingManagerList_Pop.md) |
 | `ThingManagerList_GetByType` | `0x80053FE8` `0x28` | `0x002B1890` `0x3C` | `0x0044A840` `0x30` | [→](ThingManagerList_GetByType.md) |
-| `ThingManagerList_Get` | `0x80054010` `0x2C` | `0x002B1850` `0x34` | `0x0044A870` `0x30` | batch 2 |
-| `ThingManagerList_ReleaseSlavesBySlaveType` | `0x8005403C` `0x110` | `0x002B1740` `0x10C` | `0x0044A8A0` `0x70` | batch 2 |
-| `ThingManagerList_RemoveReleasedThings` | `0x8005414C` `0xF8` | `0x002B1610` `0x12C` | `0x0044A910` `0x60` | batch 2 |
-| `ThingManagerList_ReleaseAndRemoveAll` | `0x80054244` `0x228` | (no symbol, see note) | `0x0044A970` `0x20` | batch 2 |
-| `ThingManagerList_ReleaseAll` | `0x8005446C` `0x4C` | `0x002B15C0` `0x48` | `0x0044A990` `0x30` | batch 2 |
-| `ThingManagerList_EmancipateSlaves` | `0x800544B8` `0x158` | `0x002B1480` `0x13C` | `0x0044A9C0` `0x90` | batch 2 |
+| `ThingManagerList_Get` | `0x80054010` `0x2C` | `0x002B1850` `0x34` | `0x0044A870` `0x30` | [→](ThingManagerList_Get.md) |
+| `ThingManagerList_ReleaseSlavesBySlaveType` | `0x8005403C` `0x110` | `0x002B1740` `0x10C` | `0x0044A8A0` `0x70` | [→](ThingManagerList_ReleaseSlavesBySlaveType.md) |
+| `ThingManagerList_RemoveReleasedThings` | `0x8005414C` `0xF8` | `0x002B1610` `0x12C` | `0x0044A910` `0x60` | [→](ThingManagerList_RemoveReleasedThings.md) |
+| `ThingManagerList_ReleaseAndRemoveAll` | `0x80054244` `0x228` | (no symbol, see note) | `0x0044A970` `0x20` | [→](ThingManagerList_ReleaseAndRemoveAll.md) |
+| `ThingManagerList_ReleaseAll` | `0x8005446C` `0x4C` | `0x002B15C0` `0x48` | `0x0044A990` `0x30` | [→](ThingManagerList_ReleaseAll.md) |
+| `ThingManagerList_EmancipateSlaves` | `0x800544B8` `0x158` | `0x002B1480` `0x13C` | `0x0044A9C0` `0x90` | [→](ThingManagerList_EmancipateSlaves.md) |
 | `ThingManagerList_TriggerSlaves` | `0x80054964` `0x6B0` | `0x002B04C0` `0xA94` | — | |
 | `ThingManagerList_InitAllSlavesNow` | `0x80055014` `0x170` | `0x002B0380` `0x140` | — | |
 | `ThingManager_DARYL_CreateMain` | `0x80055184` `0xF3C` | `0x002AF7A0` `0xBD4` | — | |
@@ -134,16 +134,26 @@ Also in the GC source but without link symbols: `ThingManager_InitFreeThing` /
 
 ## PS2 symbol gaps
 
-* **No `ThingManagerList_ReleaseAndRemoveAll` symbol.** `ReleaseAll` ends at
-  `0x002B1608` and `RemoveReleasedThings` starts at `0x002B1610` — an 8-byte
-  slot exactly where GC source order (PS2 lays out in reversed source order)
-  places `ReleaseAndRemoveAll`. It is plausibly a two-instruction tail-call
-  stub (`jal ReleaseAll; j RemoveReleasedThings`), mirroring the PC shape, but
-  this is **unverified**.
+* **No `ThingManagerList_ReleaseAndRemoveAll` symbol.** The 8-byte slot
+  between `ReleaseAll`'s epilogue (`addiu $29,$29,0x20` in the `jr $31` delay
+  slot @`0x002B1604`) and `RemoveReleasedThings` (`0x002B1610`) was read
+  directly from `game.elf` at file offset `0x0B1708` (mapping
+  `off = 0x100 + vaddr - 0x200000`, validated against the known prologues at
+  `0x002B15C0`/`0x002B1610`/`0x002B1910`): **two zero words** — the same
+  `nop`s the `.s` listing prints after `endlabel`. Alignment padding, not a
+  stub. The function's job is compiled *into*
+  `ThingManagerList_RemoveReleasedThings`: an inlined `ReleaseAll` walk over
+  the child list (@`0x002B1654`–`0x002B166C`, a byte-clone of the real
+  `ReleaseAll` loop @`0x002B15D8`–`0x002B15EC`, differing only in `$19`↔`$16`
+  for `next`) executed before the self-`jal` @`0x002B1670` (delay slot
+  `addiu $4,$16,0x88` = `&thing->unk88`). See
+  [`ThingManagerList_ReleaseAndRemoveAll.md`](ThingManagerList_ReleaseAndRemoveAll.md).
 * **`ThingManager_MoveLookerOnly` has no PS2 symbol** — removed or inlined in
   the PS2 build.
-* `ThingManagerList_RemoveReleasedThings.s` recurses into *itself*
-  (`jal ThingManagerList_RemoveReleasedThings` @`0x002B1670`), while GC's
-  `ThingManager.c:174` recurses into `ThingManagerList_ReleaseAndRemoveAll`
-  (which runs `ReleaseAll` on the child list first). Potential behavioural
-  divergence — to be confirmed in batch 2.
+* ~~Possible behavioural divergence~~ — **resolved:** the self-recursion in
+  `ThingManagerList_RemoveReleasedThings.s` is a codegen merge, not a
+  semantic change. The inlined child-list `ReleaseAll` walk precedes the
+  self-call, so walk-then-sweep is net-equivalent to GC's
+  `ReleaseAll(children)` + recursive sweep (`src/ThingManager.c:174`); the
+  `beqz` guard @`0x002B164C` skips only the walk, and the callee's entry test
+  no-ops an empty child list.
